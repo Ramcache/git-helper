@@ -2,38 +2,41 @@ package main
 
 import (
 	"fmt"
+	"github.com/Ramcache/git-helper/config"
+	"github.com/joho/godotenv"
 	"log"
-	"os"
 
-	"github.com/Ramcache/git-helper/internal/commit"
-	"github.com/Ramcache/git-helper/internal/git"
+	"github.com/Ramcache/git-helper/ai"
+	"github.com/Ramcache/git-helper/commit"
+	"github.com/Ramcache/git-helper/git"
 )
 
 func main() {
-	repoPath := "R:\\ProjectsGo\\InstaSpace" // Path to your Git repository
-
-	// Scan changes in the repository
-	changes, err := git.ScanChanges(repoPath)
+	cfg := config.LoadConfig()
+	// Определение флага для генерации
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error scanning repository: %v", err)
+		log.Fatalf("Ошибка при загрузке файла .env: %v", err)
 	}
-
-	// Generate a commit message
-	message, err := commit.GenerateCommitMessage(changes)
+	// Получение токена доступа
+	token, err := ai.GetAccessToken(cfg)
 	if err != nil {
-		log.Fatalf("Error generating commit message: %v", err)
+		log.Fatalf("Error getting access token: %v\n", err)
 	}
 
-	fmt.Println("Generated Commit Message:")
-	fmt.Println(message)
-
-	// Commit and push (optional)
-	if len(changes) > 0 {
-		if err := os.WriteFile("commit_message.txt", []byte(message), 0644); err != nil {
-			log.Fatalf("Failed to save commit message: %v", err)
-		}
-
-		fmt.Println("Commit message saved to commit_message.txt.")
-		fmt.Println("You can now use `git commit -F commit_message.txt` to commit.")
+	repoPath := "."
+	// Получение изменений в репозитории
+	changes, err := git.GetGitDiff(repoPath)
+	if err != nil {
+		log.Fatalf("Error getting repository changes: %v\n", err)
 	}
+
+	// Генерация сообщения коммита
+	commitMessage, err := commit.GenerateCommitMessage(token, changes)
+	if err != nil {
+		log.Fatalf("Error generating commit message: %v\n", err)
+	}
+
+	// Вывод только текста коммита
+	fmt.Print(commitMessage)
 }
